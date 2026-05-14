@@ -48,25 +48,25 @@ class SplitWorker(QThread):
             self.output_dir.mkdir(parents=True, exist_ok=True)
             reader = PdfReader(str(self.input_path))
             total_pages = len(reader.pages)
-            self.log.emit(f"📄 File: {self.input_path.name} ({total_pages} trang)")
+            self.log.emit(f"📄 File: {self.input_path.name} ({total_pages} pages)")
 
             if not reader.outline:
-                self.error.emit("⚠️ File này không có bookmark.")
+                self.error.emit("⚠️ This file has no bookmarks.")
                 return
 
             bookmarks = get_bookmarks_flat(reader.outline, reader, max_depth=self.max_depth)
             if not bookmarks:
-                self.error.emit("⚠️ Không tìm thấy bookmark nào ở depth được chỉ định.")
+                self.error.emit("⚠️ No bookmarks found at the specified depth.")
                 return
 
             bookmarks.sort(key=lambda x: x["page"])
-            self.log.emit(f"\n📑 Tìm thấy {len(bookmarks)} bookmark:\n")
+            self.log.emit(f"\n📑 Found {len(bookmarks)} bookmarks:\n")
 
             for i, bm in enumerate(bookmarks):
                 end = bookmarks[i + 1]["page"] - 1 if i + 1 < len(bookmarks) else total_pages - 1
-                self.log.emit(f"  [{i+1:02d}] Trang {bm['page']+1:>4} → {end+1:>4}  |  {bm['title']}")
+                self.log.emit(f"  [{i+1:02d}] Page {bm['page']+1:>4} → {end+1:>4}  |  {bm['title']}")
 
-            self.log.emit(f"\n✂️ Đang split và lưu vào: {self.output_dir}\n")
+            self.log.emit(f"\n✂️ Splitting and saving to: {self.output_dir}\n")
 
             for i, bm in enumerate(bookmarks):
                 start_page = bm["page"]
@@ -84,13 +84,13 @@ class SplitWorker(QThread):
                     writer.write(f)
 
                 page_count = end_page - start_page + 1
-                self.log.emit(f"  ✅ {filename}  ({page_count} trang)")
+                self.log.emit(f"  ✅ {filename}  ({page_count} pages)")
                 self.progress.emit(int((i + 1) / len(bookmarks) * 100))
 
-            self.log.emit(f"\n🎉 Hoàn thành! {len(bookmarks)} file được lưu trong: {self.output_dir}")
+            self.log.emit(f"\n🎉 Done! {len(bookmarks)} files saved to: {self.output_dir}")
             self.finished.emit()
         except Exception as e:
-            self.error.emit(f"❌ Lỗi: {e}")
+            self.error.emit(f"❌ Error: {e}")
 
 
 class MainWindow(QWidget):
@@ -104,10 +104,10 @@ class MainWindow(QWidget):
         layout = QVBoxLayout(self)
 
         # --- Input file ---
-        input_group = QGroupBox("File PDF đầu vào")
+        input_group = QGroupBox("Input PDF File")
         input_layout = QHBoxLayout(input_group)
         self.input_edit = QLineEdit()
-        self.input_edit.setPlaceholderText("Chọn file PDF...")
+        self.input_edit.setPlaceholderText("Select a PDF file...")
         btn_browse_input = QPushButton("Browse...")
         btn_browse_input.clicked.connect(self._browse_input)
         input_layout.addWidget(self.input_edit)
@@ -115,10 +115,10 @@ class MainWindow(QWidget):
         layout.addWidget(input_group)
 
         # --- Output dir ---
-        output_group = QGroupBox("Thư mục output")
+        output_group = QGroupBox("Output Directory")
         output_layout = QHBoxLayout(output_group)
         self.output_edit = QLineEdit()
-        self.output_edit.setPlaceholderText("Mặc định: <tên_file>_chapters/")
+        self.output_edit.setPlaceholderText("Default: <filename>_chapters/")
         btn_browse_output = QPushButton("Browse...")
         btn_browse_output.clicked.connect(self._browse_output)
         output_layout.addWidget(self.output_edit)
@@ -126,14 +126,14 @@ class MainWindow(QWidget):
         layout.addWidget(output_group)
 
         # --- Depth ---
-        depth_group = QGroupBox("Cài đặt")
+        depth_group = QGroupBox("Settings")
         depth_layout = QHBoxLayout(depth_group)
         depth_layout.addWidget(QLabel("Bookmark depth:"))
         self.depth_spin = QSpinBox()
         self.depth_spin.setMinimum(0)
         self.depth_spin.setMaximum(10)
         self.depth_spin.setValue(0)
-        self.depth_spin.setToolTip("0 = chỉ top-level, 1 = cả sub-chapter, ...")
+        self.depth_spin.setToolTip("0 = top-level only, 1 = include sub-chapters, ...")
         depth_layout.addWidget(self.depth_spin)
         depth_layout.addStretch()
         layout.addWidget(depth_group)
@@ -155,7 +155,7 @@ class MainWindow(QWidget):
         layout.addWidget(self.log_box)
 
     def _browse_input(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Chọn file PDF", "", "PDF Files (*.pdf)")
+        path, _ = QFileDialog.getOpenFileName(self, "Select PDF File", "", "PDF Files (*.pdf)")
         if path:
             self.input_edit.setText(path)
             # Auto-fill output dir
@@ -164,14 +164,14 @@ class MainWindow(QWidget):
                 self.output_edit.setText(default_out)
 
     def _browse_output(self):
-        path = QFileDialog.getExistingDirectory(self, "Chọn thư mục output")
+        path = QFileDialog.getExistingDirectory(self, "Select Output Directory")
         if path:
             self.output_edit.setText(path)
 
     def _run(self):
         input_path = self.input_edit.text().strip()
         if not input_path:
-            self.log_box.append("❌ Vui lòng chọn file PDF đầu vào.")
+            self.log_box.append("❌ Please select an input PDF file.")
             return
 
         output_dir = self.output_edit.text().strip() or None
